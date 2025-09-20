@@ -1,3 +1,4 @@
+gdown
 tensorflow==2.11.0
 tensorflow-serving-api==2.11.0
 fastapi==0.116.2
