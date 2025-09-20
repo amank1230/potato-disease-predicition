@@ -5,6 +5,8 @@ import numpy as np
 from io import BytesIO
 from PIL import Image
 import tensorflow as tf
+import os
+import gdown
 
 # -----------------------------
 # Create FastAPI app
@@ -26,9 +28,25 @@ app.add_middleware(
 )
 
 # -----------------------------
+# Download model from Google Drive if not already present
+# -----------------------------
+MODEL_DIR = "save_models/1"
+os.makedirs(MODEL_DIR, exist_ok=True)
+
+# Replace FILE_ID with the actual Google Drive file ID for your model
+MODEL_FILE_URL = "https://drive.google.com/uc?id=YOUR_FILE_ID"
+MODEL_FILE_PATH = os.path.join(MODEL_DIR, "model.h5")
+
+if not os.path.exists(MODEL_FILE_PATH):
+    print("Downloading model from Google Drive...")
+    gdown.download(MODEL_FILE_URL, MODEL_FILE_PATH, quiet=False)
+else:
+    print("Model already exists, skipping download.")
+
+# -----------------------------
 # Load your trained model
 # -----------------------------
-MODEL = tf.keras.models.load_model("../saved_models/1")
+MODEL = tf.keras.models.load_model(MODEL_FILE_PATH)
 
 # Use exact class names from training
 CLASS_NAMES = ["Potato___Early_blight", "Potato___Late_blight", "Potato___healthy"]
@@ -44,14 +62,9 @@ async def ping():
 # Image preprocessing function
 # -----------------------------
 def read_file_as_image(data) -> np.ndarray:
-    """
-    Convert uploaded file bytes to a numpy array
-    Matches training input size and channel order
-    ⚠️ Do NOT divide by 255.0 here if your model already has Rescaling
-    """
     image = Image.open(BytesIO(data)).convert("RGB")
     image = image.resize((256, 256))  # match model input size
-    image = np.array(image)  # keep original scale; model handles rescaling
+    image = np.array(image)
     return image
 
 # -----------------------------
@@ -59,14 +72,9 @@ def read_file_as_image(data) -> np.ndarray:
 # -----------------------------
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    # Read uploaded image
     image = read_file_as_image(await file.read())
-    img_batch = np.expand_dims(image, 0)  # add batch dimension
-
-    # Predict
+    img_batch = np.expand_dims(image, 0)
     predictions = MODEL.predict(img_batch, verbose=0)
-
-    # Get predicted class and confidence
     predicted_class = CLASS_NAMES[np.argmax(predictions[0])]
     confidence = float(np.max(predictions[0]))
 
@@ -80,4 +88,4 @@ async def predict(file: UploadFile = File(...)):
 # Run app
 # -----------------------------
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="localhost", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
