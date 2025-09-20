@@ -10,11 +10,10 @@ import gdown
 import zipfile
 
 # -----------------------------
-# Create FastAPI app
+# FastAPI app
 # -----------------------------
 app = FastAPI()
 
-# Allow frontend requests
 origins = [
     "http://localhost",
     "http://localhost:3000",
@@ -29,34 +28,31 @@ app.add_middleware(
 )
 
 # -----------------------------
-# Download and extract model from Google Drive if not already present
+# Model download and extraction
 # -----------------------------
 MODEL_DIR = "saved_models/1"
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-# Google Drive zip file link (replace YOUR_FILE_ID with your actual file ID)
-# Your link: https://drive.google.com/file/d/1DLga0IVMdVXd0GwSveTIUaoaQKb6YeCC/view?usp=drive_link
-FILE_ID = "1DLga0IVMdVXd0GwSveTIUaoaQKb6YeCC"
-ZIP_PATH = "saved_model.zip"
+# Google Drive ZIP link (replace with your actual link)
+MODEL_ZIP_URL = "https://drive.google.com/uc?id=YOUR_FILE_ID"
+MODEL_ZIP_PATH = os.path.join(MODEL_DIR, "saved_model.zip")
 
-if not os.path.exists(MODEL_DIR) or not os.listdir(MODEL_DIR):
-    print("Downloading model zip from Google Drive...")
-    gdown.download(f"https://drive.google.com/uc?id={FILE_ID}", ZIP_PATH, quiet=False)
+if not os.path.exists(os.path.join(MODEL_DIR, "saved_model.pb")):
+    print("Downloading model ZIP from Google Drive...")
+    gdown.download(MODEL_ZIP_URL, MODEL_ZIP_PATH, quiet=False)
 
-    print("Extracting model zip...")
-    with zipfile.ZipFile(ZIP_PATH, "r") as zip_ref:
+    print("Extracting model ZIP...")
+    with zipfile.ZipFile(MODEL_ZIP_PATH, 'r') as zip_ref:
         zip_ref.extractall(MODEL_DIR)
-
-    os.remove(ZIP_PATH)  # Clean up zip after extraction
 else:
     print("Model already exists, skipping download.")
 
 # -----------------------------
-# Load your trained model
+# Load TensorFlow SavedModel
 # -----------------------------
 MODEL = tf.keras.models.load_model(MODEL_DIR)
 
-# Use exact class names from training
+# Exact class names
 CLASS_NAMES = ["Potato___Early_blight", "Potato___Late_blight", "Potato___healthy"]
 
 # -----------------------------
@@ -64,14 +60,14 @@ CLASS_NAMES = ["Potato___Early_blight", "Potato___Late_blight", "Potato___health
 # -----------------------------
 @app.get("/ping")
 async def ping():
-    return {"message": "Hello, I am alive 🚀"} 
+    return {"message": "Hello, I am alive 🚀"}
 
 # -----------------------------
-# Image preprocessing function
+# Image preprocessing
 # -----------------------------
 def read_file_as_image(data) -> np.ndarray:
     image = Image.open(BytesIO(data)).convert("RGB")
-    image = image.resize((256, 256))  # match model input size
+    image = image.resize((256, 256))
     return np.array(image)
 
 # -----------------------------
