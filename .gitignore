@@ -1,0 +1,21 @@
+venv/
+api/venv/
+__pycache__/
+*.pyc
+
+
+# Models (large files)
+*.h5
+*.keras
+*.pb
+*.tflite
+save_models/
+saved_models/
+
+# Datasets
+plant village/
+*.zip
+*.tar.gz
+
+# Node
+frontend/node_modules/
