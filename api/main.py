@@ -7,13 +7,13 @@ from PIL import Image
 import tensorflow as tf
 import os
 import gdown
+import zipfile
 
 # -----------------------------
 # Create FastAPI app
 # -----------------------------
 app = FastAPI()
 
-# Allow frontend requests
 origins = [
     "http://localhost",
     "http://localhost:3000",
@@ -28,27 +28,30 @@ app.add_middleware(
 )
 
 # -----------------------------
-# Download model from Google Drive if not already present
+# Download SavedModel from Google Drive
 # -----------------------------
-MODEL_DIR = "save_models/1"
+MODEL_DIR = "saved_modules/1"  # folder structure from your drive
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-# Replace FILE_ID with the actual Google Drive file ID for your model
-MODEL_FILE_URL = "https://drive.google.com/uc?id=YOUR_FILE_ID"
-MODEL_FILE_PATH = os.path.join(MODEL_DIR, "model.h5")
+# Replace this URL with your Google Drive folder as a zip
+GDRIVE_ZIP_URL = "https://drive.google.com/uc?id=YOUR_FOLDER_FILE_ID"
 
-if not os.path.exists(MODEL_FILE_PATH):
-    print("Downloading model from Google Drive...")
-    gdown.download(MODEL_FILE_URL, MODEL_FILE_PATH, quiet=False)
+ZIP_PATH = os.path.join(MODEL_DIR, "saved_model.zip")
+
+if not os.path.exists(os.path.join(MODEL_DIR, "saved_model.pb")):
+    print("Downloading SavedModel from Google Drive...")
+    gdown.download(GDRIVE_ZIP_URL, ZIP_PATH, quiet=False)
+    with zipfile.ZipFile(ZIP_PATH, 'r') as zip_ref:
+        zip_ref.extractall(MODEL_DIR)
+    os.remove(ZIP_PATH)
 else:
-    print("Model already exists, skipping download.")
+    print("SavedModel already exists, skipping download.")
 
 # -----------------------------
-# Load your trained model
+# Load your SavedModel
 # -----------------------------
-MODEL = tf.keras.models.load_model(MODEL_FILE_PATH)
+MODEL = tf.keras.models.load_model(MODEL_DIR)
 
-# Use exact class names from training
 CLASS_NAMES = ["Potato___Early_blight", "Potato___Late_blight", "Potato___healthy"]
 
 # -----------------------------
@@ -59,13 +62,12 @@ async def ping():
     return {"message": "Hello, I am alive 🚀"} 
 
 # -----------------------------
-# Image preprocessing function
+# Image preprocessing
 # -----------------------------
 def read_file_as_image(data) -> np.ndarray:
     image = Image.open(BytesIO(data)).convert("RGB")
-    image = image.resize((256, 256))  # match model input size
-    image = np.array(image)
-    return image
+    image = image.resize((256, 256))
+    return np.array(image)
 
 # -----------------------------
 # Prediction endpoint
@@ -77,7 +79,6 @@ async def predict(file: UploadFile = File(...)):
     predictions = MODEL.predict(img_batch, verbose=0)
     predicted_class = CLASS_NAMES[np.argmax(predictions[0])]
     confidence = float(np.max(predictions[0]))
-
     return {
         "class": predicted_class,
         "confidence": confidence,
